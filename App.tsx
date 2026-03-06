@@ -4,23 +4,7 @@ import { DEFAULT_GEOFENCE } from './constants';
 import LoginScreen from './components/LoginScreen';
 import AdminDashboard from './components/AdminDashboard';
 import EmployeeDashboard from './components/EmployeeDashboard';
-import * as db from './services/dbService';
-
-// Haversine formula to calculate distance between two lat/lng points in meters
-const getDistance = (loc1: Location, loc2: Location): number => {
-  const R = 6371e3; // metres
-  const φ1 = (loc1.latitude * Math.PI) / 180;
-  const φ2 = (loc2.latitude * Math.PI) / 180;
-  const Δφ = ((loc2.latitude - loc1.latitude) * Math.PI) / 180;
-  const Δλ = ((loc2.longitude - loc1.longitude) * Math.PI) / 180;
-
-  const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c;
-};
+import * as api from './services/apiService';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -28,91 +12,114 @@ const App: React.FC = () => {
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [attendanceError, setAttendanceError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [apiError, setApiError] = useState<string | null>(null);
 
+  // Check if user is already logged in (restore session)
   useEffect(() => {
-    const loadData = async () => {
-      await db.initializeDB();
-      setUsers(db.getAllUsers());
-      setAttendanceRecords(db.getAllAttendanceRecords());
-      setIsLoading(false);
-    };
-
-    loadData();
+    const token = localStorage.getItem('geotracker_token');
+    const savedUser = localStorage.getItem('geotracker_user');
+    if (token && savedUser) {
+      try {
+        const user = JSON.parse(savedUser) as User;
+        setCurrentUser(user);
+        loadData();
+      } catch {
+        localStorage.removeItem('geotracker_token');
+        localStorage.removeItem('geotracker_user');
+      }
+    }
+    setIsLoading(false);
   }, []);
 
-
-  const handleLogin = (name: string, password: string):boolean => {
-    const user = users.find(
-      (u) => u.name === name && u.password === password
-    );
-    if (user) {
-      setCurrentUser(user);
-      return true;
+  // Load data after successful login
+  const loadData = async () => {
+    try {
+      const [usersData, attendanceData] = await Promise.all([
+        api.getAllUsers(),
+        api.getAllAttendanceRecords(),
+      ]);
+      setUsers(usersData);
+      setAttendanceRecords(attendanceData);
+    } catch (error) {
+      console.error('Failed to load data:', error);
     }
-    return false;
   };
 
-  const handleLogout = () => {
+  const handleLogin = async (name: string, password: string): Promise<boolean> => {
+    try {
+      const result = await api.login(name, password);
+      setCurrentUser(result.user);
+      localStorage.setItem('geotracker_user', JSON.stringify(result.user));
+      await loadData();
+      return true;
+    } catch (error) {
+      console.error('Login failed:', error);
+      return false;
+    }
+  };
+
+  const handleLogout = async () => {
+    api.logout();
     setCurrentUser(null);
+    setUsers([]);
+    setAttendanceRecords([]);
+    localStorage.removeItem('geotracker_user');
   };
 
-  const handleMarkAttendance = (userId: number, location: Location) => {
+  const handleMarkAttendance = async (userId: number, location: Location) => {
     setAttendanceError(null);
     const user = users.find(u => u.id === userId);
     if (!user) return;
 
-    const existingRecord = attendanceRecords.find(
-      (record) => record.userId === userId && !record.checkOutTime
-    );
+    try {
+      const existingRecord = attendanceRecords.find(
+        (record) => record.userId === userId && !record.checkOutTime
+      );
 
-    if (existingRecord) {
-      // Check out - no geofence restriction
-      const updatedRecord = { ...existingRecord, checkOutTime: new Date() };
-      db.updateAttendanceRecord(updatedRecord);
-      setAttendanceRecords(records => records.map(r => r.id === updatedRecord.id ? updatedRecord : r));
-
-    } else {
-      // Check in - apply geofence restriction
-      const geofence = user.geofence || DEFAULT_GEOFENCE;
-      const distance = getDistance(location, geofence.center);
-      if (distance > geofence.radius) {
-        setAttendanceError(`Check-in failed: You are outside the designated work area. (${Math.round(distance)}m away)`);
-        return;
+      if (existingRecord) {
+        // Check out
+        const updatedRecord = await api.checkOut();
+        setAttendanceRecords(records =>
+          records.map(r => r.id === updatedRecord.id ? updatedRecord : r)
+        );
+      } else {
+        // Check in (geofence validation done on backend)
+        const newRecord = await api.checkIn(location);
+        setAttendanceRecords([...attendanceRecords, newRecord]);
       }
-
-      const newRecord: AttendanceRecord = {
-        id: Date.now(), // Use timestamp for unique ID
-        userId,
-        checkInTime: new Date(),
-        checkInLocation: location,
-      };
-      db.addAttendanceRecord(newRecord);
-      setAttendanceRecords([...attendanceRecords, newRecord]);
+    } catch (error: any) {
+      setAttendanceError(error.message || 'Failed to mark attendance');
     }
   };
-  
-  const handleSetGeofence = (userId: number, newGeofence: Geofence | undefined) => {
-    db.updateUserGeofence(userId, newGeofence);
-    setUsers(db.getAllUsers());
+
+  const handleSetGeofence = async (userId: number, newGeofence: Geofence | undefined) => {
+    try {
+      const updatedUser = await api.updateUserGeofence(userId, newGeofence);
+      setUsers(users.map(u => u.id === userId ? updatedUser : u));
+    } catch (error) {
+      console.error('Failed to update geofence:', error);
+    }
   };
 
-  const handleAddUser = (name: string, password: string) => {
-    const newUser: User = {
-      id: Date.now(),
-      name: name,
-      password,
-      role: Role.Employee,
-    };
-    db.addUser(newUser);
-    setUsers(db.getAllUsers());
+  const handleAddUser = async (name: string, password: string) => {
+    try {
+      const newUser = await api.addUser(name, password);
+      setUsers([...users, newUser]);
+    } catch (error) {
+      console.error('Failed to add user:', error);
+      alert('Failed to add user. User may already exist.');
+    }
   };
 
-  const handleRemoveUser = (userId: number) => {
+  const handleRemoveUser = async (userId: number) => {
     if (window.confirm("Are you sure you want to remove this employee?")) {
-      db.removeUser(userId);
-      db.removeAttendanceRecordsForUser(userId);
-      setUsers(db.getAllUsers());
-      setAttendanceRecords(db.getAllAttendanceRecords());
+      try {
+        await api.removeUser(userId);
+        setUsers(users.filter(u => u.id !== userId));
+        setAttendanceRecords(attendanceRecords.filter(r => r.userId !== userId));
+      } catch (error) {
+        console.error('Failed to remove user:', error);
+      }
     }
   };
 
@@ -124,9 +131,10 @@ const App: React.FC = () => {
         </div>
       );
     }
-      
+
     if (!currentUser) {
-      return <LoginScreen users={users} onLogin={handleLogin} />;
+      // Pass empty users array - login is handled by backend
+      return <LoginScreen users={[]} onLogin={handleLogin} />;
     }
 
     const fullCurrentUser = users.find(u => u.id === currentUser.id) || currentUser;
@@ -151,6 +159,7 @@ const App: React.FC = () => {
         <EmployeeDashboard
           currentUser={fullCurrentUser}
           attendanceRecords={employeeRecords}
+          allUsers={users}
           onMarkAttendance={handleMarkAttendance}
           onLogout={handleLogout}
           attendanceError={attendanceError}
