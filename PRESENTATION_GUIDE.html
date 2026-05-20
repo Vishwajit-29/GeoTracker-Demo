@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset='UTF-8'>
+<title>GeoTracker Presentation Guide</title>
+<style>
+  @page { margin: 20mm; }
+  body { font-family: Arial, sans-serif; font-size: 13px; line-height: 1.6; color: #1a1a2e; }
+  h1 { color: #3B82F6; font-size: 26px; border-bottom: 3px solid #3B82F6; padding-bottom: 8px; }
+  h2 { color: #1E293B; font-size: 18px; margin-top: 28px; border-left: 4px solid #3B82F6; padding-left: 10px; background: #f0f7ff; padding: 8px 12px; border-radius: 4px; }
+  h3 { color: #334155; font-size: 15px; margin-top: 20px; }
+  code { background: #f1f5f9; padding: 2px 6px; border-radius: 3px; font-family: 'Courier New', monospace; color: #0f172a; font-size: 12px; }
+  pre { background: #1e293b; color: #e2e8f0; padding: 14px; border-radius: 6px; overflow-x: auto; }
+  pre code { background: none; color: #e2e8f0; }
+  blockquote { background: #eff6ff; border-left: 4px solid #3B82F6; margin: 10px 0; padding: 10px 16px; border-radius: 0 6px 6px 0; font-style: italic; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+  td, th { border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; }
+  tr:nth-child(even) { background: #f8fafc; }
+  hr { border: none; border-top: 2px solid #e2e8f0; margin: 24px 0; }
+  li { margin: 4px 0; }
+  strong { color: #1e293b; }
+  p { margin: 8px 0; }
+</style>
+</head>
+<body>
+<p><h1>🗺️ GeoTracker — Presentation Guide</h1>
+<h3>(Written for a complete beginner — presentation is TOMORROW, don't panic!)</h3></p><p><hr></p><p><h2>📌 What Is This Project? (Say this when they ask)</h2></p><p><blockquote><strong>GeoTracker is an employee attendance management system.</strong></blockquote>
+<blockquote>Instead of signing a paper register, employees check in and check out using their phone or laptop.</blockquote>
+<blockquote>The system uses <strong>GPS location</strong> to make sure the employee is physically present at the office before they can check in.</blockquote>
+<blockquote>The admin can see who came, when they came, how long they worked, and can approve or reject leave requests — all from one dashboard.</blockquote></p><p><hr></p><p><h2>🖥️ What Tech Is Used? (Just memorize this list)</h2></p><p><tr><td>What</td><td>Technology</td></tr></p><p><tr><td>UI (what you see)</td><td><strong>React</strong> (a JavaScript library)</td></tr>
+<tr><td>Language</td><td><strong>TypeScript</strong> (JavaScript with rules)</td></tr>
+<tr><td>Styling</td><td><strong>Tailwind CSS</strong> (ready-made design classes)</td></tr>
+<tr><td>Maps</td><td><strong>Leaflet</strong> (open-source map library)</td></tr>
+<tr><td>Build tool</td><td><strong>Vite</strong> (runs the app locally super fast)</td></tr>
+<tr><td>Data (demo)</td><td><strong>JSON files</strong> (no real database needed for demo)</td></tr></p><p><hr></p><p><h2>🚀 HOW TO RUN THE PROJECT (Step by Step)</h2></p><p><blockquote>⚠️ <strong>Do this BEFORE your presentation!</strong> Run the app, keep the terminal open, and just switch to the browser during presentation.</blockquote></p><p><h3>Step 1 — Open a Terminal</h3>
+Open your terminal in the project folder. The folder is:
+``<code>
+/home/thor/testGeo/GeoTracker-Demo
+</code>`<code>
+Or just right-click inside the folder → "Open Terminal Here"</p><p><h3>Step 2 — Install Dependencies (only needed once)</h3>
+</code>`<code>bash
+npm install
+</code>`<code>
+This downloads all the libraries the project needs. Wait for it to finish. You'll see a </code>node_modules<code> folder appear.</p><p><h3>Step 3 — Start the App</h3>
+</code>`<code>bash
+npm run dev
+</code>`<code>
+You should see something like:
+</code>`<code>
+  VITE v6.x.x  ready in 300ms</p><p>  ➜  Local:   http://localhost:3000/
+</code>`<code></p><p><h3>Step 4 — Open the Browser</h3>
+Go to: <strong>http://localhost:3000</strong></p><p>🎉 The app is now running!</p><p><h3>✅ To Stop the App</h3>
+Press </code>Ctrl + C<code> in the terminal.</p><p><hr></p><p><h2>🔑 Login Credentials (for the demo)</h2></p><p><tr><td>Role</td><td>Username</td><td>Password</td></tr></p><p><tr><td><strong>Admin</strong></td><td></code>admin<code></td><td></code>pass<code></td></tr>
+<tr><td><strong>Employee</strong></td><td></code>Yash<code></td><td></code>pass<code></td></tr>
+<tr><td><strong>Employee</strong></td><td></code>Lalit<code></td><td></code>pass<code></td></tr>
+<tr><td><strong>Employee</strong></td><td></code>Tanisha<code></td><td></code>pass<code></td></tr>
+<tr><td><strong>Employee</strong></td><td></code>Kartik<code></td><td></code>pass<code></td></tr></p><p><blockquote>💡 <strong>Tip for presentation:</strong> Log in as <strong>admin</strong> first to show the dashboard, then log out and log in as an employee like <strong>Yash</strong> to show the employee view.</blockquote></p><p><hr></p><p><h2>📋 FEATURE WALKTHROUGH (What to show & what to say)</h2></p><p><h3>🔐 1. Login Screen</h3>
+<li><strong>What to show:</strong> Open http://localhost:3000, type </code>admin<code> and </code>pass<code>, click Login.</li>
+<li><strong>What to say:</strong> <em>"This is the login page. We have role-based access — admin sees a management dashboard, employees see their own attendance page."</em></li></p><p><hr></p><p><h3>🏠 2. Admin Dashboard — Leave Requests Tab</h3>
+<li><strong>What to show:</strong> After login as admin, the "Leave Requests" tab opens first. You'll see pending requests from Tanisha and Kartik. Click <strong>Approve</strong> on one.</li>
+<li><strong>What to say:</strong> <em>"Admin can see all pending leave requests here. One click to approve or reject."</em></li></p><p><hr></p><p><h3>📅 3. Admin Dashboard — Attendance Calendar Tab</h3>
+<li><strong>What to show:</strong> Click "Attendance Calendar" in the sidebar. Select "Yash" from the dropdown. A calendar will appear showing which days he was present.</li>
+<li><strong>What to say:</strong> <em>"The admin can view any employee's attendance month by month. The summary shows total days present, total hours worked, and leave days taken."</em></li></p><p><hr></p><p><h3>⏱️ 4. Admin Dashboard — Working Hours Tab</h3>
+<li><strong>What to show:</strong> Click "Working Hours" in the sidebar. A table shows all employees, days present, total hours, and average hours per day.</li>
+<li><strong>What to say:</strong> <em>"This is useful for payroll calculations. You can see exactly how many hours each employee worked."</em></li></p><p><hr></p><p><h3>👥 5. Admin Dashboard — Employees Tab</h3>
+<li><strong>What to show:</strong> Click "Employees". You see a list of all employees. Click "Add Employee" to show the form.</li>
+<li><strong>What to say:</strong> <em>"Admin can add or remove employees directly from here."</em></li></p><p><hr></p><p><h3>🗺️ 6. Admin Dashboard — Geofence Tab</h3>
+<li><strong>What to show:</strong> Click "Geofence". Click the pencil icon on any employee to show the editor.</li>
+<li><strong>What to say:</strong> <em>"Geofencing means we draw a virtual boundary around the office. If an employee tries to check in from outside this circle, the system won't allow it. Admin can set the radius per employee."</em></li></p><p><hr></p><p><h3>👷 7. Employee Dashboard</h3>
+<li><strong>What to show:</strong> Log out from admin. Log in as </code>Yash<code> / </code>pass<code>. The employee dashboard opens.</li>
+<li><strong>What to say:</strong> <em>"This is what an employee sees. They can see their check-in status, a map showing their current location and the office geofence, and their leave history."</em></li></p><p><hr></p><p><h2>❓ LIKELY QUESTIONS & ANSWERS</h2></p><p><h3>🔵 Basic Questions</h3></p><p><strong>Q: What problem does this solve?</strong>
+<blockquote>Traditional attendance systems require physical registers or punch cards. This app makes attendance digital, location-verified, and manageable from anywhere.</blockquote></p><p><strong>Q: Is this a real production app?</strong>
+<blockquote>This is a demo version. It runs with local JSON data files instead of a real database. The code is structured to connect to a real backend — you just swap the data files for actual API calls.</blockquote></p><p><strong>Q: What is GPS / Geofencing?</strong>
+<blockquote>GPS gives us the employee's latitude and longitude (their exact position on earth). Geofencing means we define a circle around the office. If the employee's location is inside the circle, they're allowed to check in. If outside, the system blocks them.</blockquote></p><p><strong>Q: What happens if someone fakes their GPS location?</strong>
+<blockquote>GPS spoofing is a real challenge. In production, additional security layers like device verification or IP checks can be added. For this demo, we trust the browser's location.</blockquote></p><p><hr></p><p><h3>🟡 Technical Questions</h3></p><p><strong>Q: What is React?</strong>
+<blockquote>React is a JavaScript library by Facebook for building user interfaces. Instead of reloading the whole page when something changes, React updates only the part that changed. This makes apps feel fast and smooth.</blockquote></p><p><strong>Q: What is TypeScript?</strong>
+<blockquote>TypeScript is JavaScript with extra rules. It tells developers "this function expects a number, not a string." This catches bugs before the code even runs. Very popular in large projects.</blockquote></p><p><strong>Q: What is Vite?</strong>
+<blockquote>Vite is a build tool — it makes the app run on your computer during development. It's much faster than older tools. </code>npm run dev<code> starts the Vite server.</blockquote></p><p><strong>Q: What is Tailwind CSS?</strong>
+<blockquote>Tailwind is a CSS framework. Instead of writing custom CSS, you add small class names directly in HTML like </code>text-blue-500 text-lg<code>. Makes styling very fast.</blockquote></p><p><strong>Q: What is Leaflet / the map library?</strong>
+<blockquote>Leaflet is a free, open-source library for interactive maps. It uses OpenStreetMap (like Google Maps but free). We use it to show the employee's live location and the office geofence circle.</blockquote></p><p><strong>Q: Why are there JSON files? Where is the database?</strong>
+<blockquote>For the demo, we use simple JSON files (</code>users.json<code>, </code>attendance.json<code>, </code>leaves.json<code>) in the </code>data/<code> folder. This means the demo works without setting up a database server. In a real deployment, these would be replaced by a database like PostgreSQL or MongoDB.</blockquote></p><p><strong>Q: What is an API?</strong>
+<blockquote>API (Application Programming Interface) is how the frontend talks to the backend. The frontend sends a request like "give me all users" and the backend sends back the data. In this demo, that's simulated using local JSON files.</blockquote></p><p><strong>Q: What is localStorage?</strong>
+<blockquote>localStorage is a small storage space in the browser. We use it to remember the logged-in user even if you refresh the page — like "remember me" functionality.</blockquote></p><p><strong>Q: What is role-based access control?</strong>
+<blockquote>Different users get different permissions based on their role. An <strong>Admin</strong> can see all employees, approve leaves, set geofences. An <strong>Employee</strong> can only see their own attendance and apply for leave.</blockquote></p><p><hr></p><p><h3>🟢 Feature Questions</h3></p><p><strong>Q: How does check-in work?</strong>
+<blockquote>When the employee clicks "Check In", the browser asks for their GPS location. The app checks if that location is inside the geofence circle. If yes, a check-in record is created with the timestamp. If no, it's denied.</blockquote></p><p><strong>Q: What is the default geofence?</strong>
+<blockquote>The default office location is coordinates </code>21.0125°N, 75.5026°E<code> (Maharashtra, India) with a radius of <strong>1 kilometre</strong>. Each employee can have their own custom geofence set by the admin.</blockquote></p><p><strong>Q: Can the admin see where an employee is right now (live tracking)?</strong>
+<blockquote>No. The system only captures location at check-in time. It does not continuously track employees. This is better for privacy.</blockquote></p><p><strong>Q: What types of leaves are supported?</strong>
+<blockquote>Three types: <strong>Casual Leave</strong>, <strong>Medical/Sick Leave</strong>, and <strong>Other</strong>.</blockquote></p><p><strong>Q: Can employees see if their leave was approved?</strong>
+<blockquote>Yes. In the employee dashboard, they can see all their leave requests and their current status — Pending, Approved, or Rejected.</blockquote></p><p><strong>Q: What does the attendance calendar show?</strong>
+<blockquote>A monthly calendar where each day is colour-coded — present days, leave days, and empty days (weekends/no record). The summary shows total present days, working hours, and leave days.</blockquote></p><p><strong>Q: Can you export data?</strong>
+<blockquote>Yes. There is an export feature that allows downloading attendance data as a <strong>CSV file</strong>, which opens in Excel.</blockquote></p><p><hr></p><p><h3>🔴 Advanced Questions</h3></p><p><strong>Q: How would you scale this for 1000 employees?</strong>
+<blockquote>Replace JSON files with a proper database (PostgreSQL or MongoDB). Use a backend server (Node.js/Express or Spring Boot). Add caching with Redis. Use cloud hosting like AWS or GCP. The frontend code stays almost the same.</blockquote></p><p><strong>Q: What security concerns does this app have?</strong>
+<blockquote>1. Passwords in JSON files are plain text (production needs bcrypt hashing). 2. The demo token is not a real JWT. 3. GPS spoofing risk. 4. In production, all data would be sent over HTTPS.</blockquote></p><p><strong>Q: Why use React instead of plain HTML/CSS/JS?</strong>
+<blockquote>React makes it much easier to build complex UIs with interactive parts (modals, tabs, live updates). Plain HTML/JS becomes hard to manage as the app grows.</blockquote></p><p><strong>Q: How is the project structured?</strong>
+<blockquote>Clean separation of concerns:</blockquote>
+<blockquote>- </code>components/<code> — All UI screens and modals</blockquote>
+<blockquote>- </code>services/<code> — All API/data fetching logic</blockquote>
+<blockquote>- </code>data/<code> — Demo JSON data files</blockquote>
+<blockquote>- </code>types.ts<code> — Data shape definitions</blockquote>
+<blockquote>- </code>App.tsx<code> — Main file that ties everything together</blockquote></p><p><hr></p><p><h2>🎤 PRESENTATION TIPS</h2></p><p>1. <strong>Open the app before presenting.</strong> Have it running at localhost:3000 already.
+2. <strong>Log in as admin first.</strong> Show the Leave Requests tab → Attendance Calendar → Geofence tab.
+3. <strong>Then show employee view.</strong> Log out and log in as Yash.
+4. <strong>If something breaks</strong>, stay calm and say: <em>"This is a demo environment — in production this would connect to a real backend."</em>
+5. <strong>Have this cheat sheet open</strong> on your phone or a second screen.
+6. <strong>Speak slowly.</strong> You know this project better than anyone in the room.</p><p><hr></p><p><h2>🗂️ Project File Structure (Quick Reference)</h2></p><p></code>`<code>
+GeoTracker-Demo/
+│
+├── index.html              ← The single HTML page the browser loads
+├── index.tsx               ← Entry point — starts React
+├── App.tsx                 ← Main app logic (login, routing between pages)
+├── types.ts                ← Defines data shapes (User, Leave, etc.)
+├── constants.ts            ← Default geofence location
+├── index.css               ← Base CSS styles
+│
+├── components/
+│   ├── LoginScreen.tsx         ← Login page
+│   ├── AdminDashboard.tsx      ← Admin's main page (tabs)
+│   ├── EmployeeDashboard.tsx   ← Employee's main page
+│   ├── AttendanceCalendar.tsx  ← Monthly calendar UI
+│   ├── LeaveRequestModal.tsx   ← Popup to apply for leave
+│   ├── LeaveHistoryModal.tsx   ← Popup for leave history
+│   └── GeofenceEditorModal.tsx ← Popup to set geofence on map
+│
+├── services/
+│   ├── apiService.ts       ← All data fetching (demo JSON or real API)
+│   └── exportService.ts    ← CSV export logic
+│
+└── data/
+    ├── users.json          ← Demo user accounts
+    ├── attendance.json     ← Demo check-in/out records
+    └── leaves.json         ← Demo leave requests
+</code>``</p><p><hr></p><p><blockquote><strong>Good luck tomorrow! You've got this. 💪</strong></blockquote>
+</p>
+</body>
+</html>

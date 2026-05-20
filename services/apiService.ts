@@ -77,103 +77,95 @@ export const logout = (): void => {
   localStorage.removeItem("geotracker_token");
 };
 
-// Users API
-export const getAllUsers = async (): Promise<User[]> => {
+// ==================== Demo Users (localStorage-backed) ====================
+const LS_USERS = 'geotracker_demo_users';
+let demoUsersCache: any[] | null = null;
+
+const saveDemoUsers = () => {
+  if (demoUsersCache) localStorage.setItem(LS_USERS, JSON.stringify(demoUsersCache));
+};
+
+const fetchDemoUsers = async (): Promise<any[] | null> => {
+  if (demoUsersCache !== null) return demoUsersCache;
+  // 1. Check localStorage first (survives refresh)
+  const saved = localStorage.getItem(LS_USERS);
+  if (saved) { try { demoUsersCache = JSON.parse(saved); return demoUsersCache; } catch (e) {} }
+  // 2. Fall back to static JSON
   try {
     const res = await fetch("/data/users.json");
     if (res.ok) {
-        const users = await res.json();
-        return users.map((user: any) => ({
-            id: user.id,
-            name: user.name,
-            role: user.role as Role,
-            geofence: user.geofence ? {
-                center: user.geofence.center,
-                radius: user.geofence.radius
-            } : undefined
-        }));
+      demoUsersCache = await res.json();
+      saveDemoUsers();
+      return demoUsersCache;
     }
   } catch (e) {}
+  return null;
+};
+
+const mapUser = (user: any): User => ({
+  id: user.id,
+  name: user.name,
+  role: user.role as Role,
+  geofence: user.geofence ? { center: user.geofence.center, radius: user.geofence.radius } : undefined,
+});
+
+export const getAllUsers = async (): Promise<User[]> => {
+  const demo = await fetchDemoUsers();
+  if (demo) return demo.map(mapUser);
+
   const response = await fetchWithAuth("/users");
   const users = await response.json();
-
   return users.map((user: any) => ({
     id: user.id,
     name: user.name,
     role: user.role as Role,
     geofence: user.geofence
-      ? {
-          center: {
-            latitude: user.geofence.centerLatitude,
-            longitude: user.geofence.centerLongitude,
-          },
-          radius: user.geofence.radius,
-        }
+      ? { center: { latitude: user.geofence.centerLatitude, longitude: user.geofence.centerLongitude }, radius: user.geofence.radius }
       : undefined,
   }));
 };
 
 export const addUser = async (name: string, password: string): Promise<User> => {
-  const response = await fetchWithAuth("/users", {
-    method: "POST",
-    body: JSON.stringify({ name, password }),
-  });
-
-  const user = await response.json();
-  return {
-    id: user.id,
-    name: user.name,
-    role: user.role as Role,
-    geofence: user.geofence
-      ? {
-          center: {
-            latitude: user.geofence.centerLatitude,
-            longitude: user.geofence.centerLongitude,
-          },
-          radius: user.geofence.radius,
-        }
-      : undefined,
-  };
+  const demo = await fetchDemoUsers();
+  if (demo) {
+    const exists = demo.find((u: any) => u.name.toLowerCase() === name.toLowerCase());
+    if (exists) throw new Error("User already exists");
+    const newId = Math.max(...demo.map((u: any) => u.id)) + 1;
+    const newUser = { id: newId, name, password, role: "EMPLOYEE" };
+    demo.push(newUser);
+    saveDemoUsers();
+    return mapUser(newUser);
+  }
+  const response = await fetchWithAuth("/users", { method: "POST", body: JSON.stringify({ name, password }) });
+  return mapUser(await response.json());
 };
 
 export const removeUser = async (userId: number): Promise<void> => {
-  await fetchWithAuth(`/users/${userId}`, {
-    method: "DELETE",
-  });
+  const demo = await fetchDemoUsers();
+  if (demo) {
+    const idx = demo.findIndex((u: any) => u.id === userId);
+    if (idx !== -1) demo.splice(idx, 1);
+    saveDemoUsers();
+    return;
+  }
+  await fetchWithAuth(`/users/${userId}`, { method: "DELETE" });
 };
 
-export const updateUserGeofence = async (
-  userId: number,
-  geofence: Geofence | undefined
-): Promise<User> => {
+export const updateUserGeofence = async (userId: number, geofence: Geofence | undefined): Promise<User> => {
+  const demo = await fetchDemoUsers();
+  if (demo) {
+    const user = demo.find((u: any) => u.id === userId);
+    if (user) {
+      user.geofence = geofence ? { center: geofence.center, radius: geofence.radius } : undefined;
+      saveDemoUsers();
+      return mapUser(user);
+    }
+  }
   const body = geofence
-    ? {
-        centerLatitude: geofence.center.latitude,
-        centerLongitude: geofence.center.longitude,
-        radius: geofence.radius,
-      }
+    ? { centerLatitude: geofence.center.latitude, centerLongitude: geofence.center.longitude, radius: geofence.radius }
     : {};
-
-  const response = await fetchWithAuth(`/users/${userId}/geofence`, {
-    method: "PUT",
-    body: JSON.stringify(body),
-  });
-
-  const user = await response.json();
-  return {
-    id: user.id,
-    name: user.name,
-    role: user.role as Role,
-    geofence: user.geofence
-      ? {
-          center: {
-            latitude: user.geofence.centerLatitude,
-            longitude: user.geofence.centerLongitude,
-          },
-          radius: user.geofence.radius,
-        }
-      : undefined,
-  };
+  const response = await fetchWithAuth(`/users/${userId}/geofence`, { method: "PUT", body: JSON.stringify(body) });
+  return mapUser(await response.json());
 };
 
 export const changePassword = async (
@@ -191,90 +183,112 @@ export const changePassword = async (
   });
 };
 
-// Attendance API
-export const getAllAttendanceRecords = async (): Promise<AttendanceRecord[]> => {
+// ==================== Demo Attendance (localStorage-backed) ====================
+const LS_ATTENDANCE = 'geotracker_demo_attendance';
+let demoAttendanceCache: any[] | null = null;
+
+const saveDemoAttendance = () => {
+  if (demoAttendanceCache) localStorage.setItem(LS_ATTENDANCE, JSON.stringify(demoAttendanceCache));
+};
+
+const fetchDemoAttendance = async (): Promise<any[] | null> => {
+  if (demoAttendanceCache !== null) return demoAttendanceCache;
+  // 1. Check localStorage first
+  const saved = localStorage.getItem(LS_ATTENDANCE);
+  if (saved) { try { demoAttendanceCache = JSON.parse(saved); return demoAttendanceCache; } catch (e) {} }
+  // 2. Fall back to static JSON
   try {
     const res = await fetch("/data/attendance.json");
     if (res.ok) {
-        const records = await res.json();
-        return records.map((record: any) => ({
-            id: record.id,
-            userId: record.userId,
-            checkInTime: new Date(record.checkInTime),
-            checkOutTime: record.checkOutTime ? new Date(record.checkOutTime) : undefined,
-            checkInLocation: {
-                latitude: record.checkInLatitude || 21.0125,
-                longitude: record.checkInLongitude || 75.5025,
-            },
-        }));
+      demoAttendanceCache = await res.json();
+      saveDemoAttendance();
+      return demoAttendanceCache;
     }
   } catch (e) {}
+  return null;
+};
+
+const mapRecord = (record: any): AttendanceRecord => ({
+  id: record.id,
+  userId: record.userId,
+  checkInTime: new Date(record.checkInTime),
+  checkOutTime: record.checkOutTime ? new Date(record.checkOutTime) : undefined,
+  checkInLocation: {
+    latitude: record.checkInLocation?.latitude ?? record.checkInLatitude ?? 21.0125,
+    longitude: record.checkInLocation?.longitude ?? record.checkInLongitude ?? 75.5025,
+  },
+});
+
+export const getAllAttendanceRecords = async (): Promise<AttendanceRecord[]> => {
+  const demo = await fetchDemoAttendance();
+  if (demo) return demo.map(mapRecord);
+
   const response = await fetchWithAuth("/attendance");
   const records = await response.json();
-
   return records.map((record: any) => ({
     id: record.id,
     userId: record.userId,
     checkInTime: new Date(record.checkInTime + 'Z'),
     checkOutTime: record.checkOutTime ? new Date(record.checkOutTime + 'Z') : undefined,
-    checkInLocation: {
-      latitude: record.checkInLatitude,
-      longitude: record.checkInLongitude,
-    },
+    checkInLocation: { latitude: record.checkInLatitude, longitude: record.checkInLongitude },
   }));
 };
 
 export const getUserAttendanceRecords = async (userId: number): Promise<AttendanceRecord[]> => {
+  const demo = await fetchDemoAttendance();
+  if (demo) return demo.filter((r: any) => r.userId === userId).map(mapRecord);
+
   const response = await fetchWithAuth(`/attendance/user/${userId}`);
   const records = await response.json();
-
   return records.map((record: any) => ({
     id: record.id,
     userId: record.userId,
     checkInTime: new Date(record.checkInTime + 'Z'),
     checkOutTime: record.checkOutTime ? new Date(record.checkOutTime + 'Z') : undefined,
-    checkInLocation: {
-      latitude: record.checkInLatitude,
-      longitude: record.checkInLongitude,
-    },
+    checkInLocation: { latitude: record.checkInLatitude, longitude: record.checkInLongitude },
   }));
 };
 
 export const checkIn = async (location: Location): Promise<AttendanceRecord> => {
-  const response = await fetchWithAuth("/attendance/checkin", {
-    method: "POST",
-    body: JSON.stringify(location),
-  });
-
-  const record = await response.json();
-  return {
-    id: record.id,
-    userId: record.userId,
-    checkInTime: new Date(record.checkInTime),
-    checkOutTime: record.checkOutTime ? new Date(record.checkOutTime) : undefined,
-    checkInLocation: {
-      latitude: record.checkInLatitude,
-      longitude: record.checkInLongitude,
-    },
-  };
+  const demo = await fetchDemoAttendance();
+  if (demo) {
+    let userId = 2;
+    try {
+      const saved = localStorage.getItem("geotracker_user");
+      if (saved) userId = JSON.parse(saved).id;
+    } catch (e) {}
+    const newId = demo.length > 0 ? Math.max(...demo.map((r: any) => r.id)) + 1 : 1;
+    const newRecord = {
+      id: newId, userId,
+      checkInTime: new Date().toISOString(),
+      checkOutTime: null,
+      checkInLocation: { latitude: location.latitude, longitude: location.longitude },
+    };
+    demo.push(newRecord);
+    saveDemoAttendance();
+    return mapRecord(newRecord);
+  }
+  const response = await fetchWithAuth("/attendance/checkin", { method: "POST", body: JSON.stringify(location) });
+  return mapRecord(await response.json());
 };
 
 export const checkOut = async (): Promise<AttendanceRecord> => {
-  const response = await fetchWithAuth("/attendance/checkout", {
-    method: "POST",
-  });
-
-  const record = await response.json();
-  return {
-    id: record.id,
-    userId: record.userId,
-    checkInTime: new Date(record.checkInTime),
-    checkOutTime: record.checkOutTime ? new Date(record.checkOutTime) : undefined,
-    checkInLocation: {
-      latitude: record.checkInLatitude,
-      longitude: record.checkInLongitude,
-    },
-  };
+  const demo = await fetchDemoAttendance();
+  if (demo) {
+    let userId = 2;
+    try {
+      const saved = localStorage.getItem("geotracker_user");
+      if (saved) userId = JSON.parse(saved).id;
+    } catch (e) {}
+    const open = [...demo].reverse().find((r: any) => r.userId === userId && !r.checkOutTime);
+    if (open) {
+      open.checkOutTime = new Date().toISOString();
+      saveDemoAttendance();
+      return mapRecord(open);
+    }
+  }
+  const response = await fetchWithAuth("/attendance/checkout", { method: "POST" });
+  return mapRecord(await response.json());
 };
 
 // Check if user has open check-in (for determining button state)
@@ -315,85 +329,81 @@ export const setApiUrl = (url: string) => {
 // Get current API URL for display
 export const getApiUrl = (): string => API_BASE_URL;
 
-// ==================== Leave Management ====================
+// ==================== Demo Leaves (localStorage-backed) ====================
+
+// Shared helper: map raw leave object to typed Leave
+const mapLeave = (leave: any): Leave => ({
+  id: leave.id,
+  userId: leave.userId,
+  userName: leave.userName,
+  type: leave.type as LeaveType,
+  status: leave.status as LeaveStatus,
+  startDate: new Date(leave.startDate),
+  endDate: new Date(leave.endDate),
+  reason: leave.reason,
+  approvedBy: leave.approvedBy,
+  approvedByName: leave.approvedByName,
+  approvedAt: leave.approvedAt ? new Date(leave.approvedAt) : undefined,
+  createdAt: new Date(leave.createdAt),
+});
+const LS_LEAVES = 'geotracker_demo_leaves';
+let demoLeavesCache: any[] | null = null;
+
+const saveDemoLeaves = () => {
+  if (demoLeavesCache) localStorage.setItem(LS_LEAVES, JSON.stringify(demoLeavesCache));
+};
+
+const fetchDemoLeaves = async (): Promise<any[] | null> => {
+  if (demoLeavesCache !== null) return demoLeavesCache;
+  // 1. Check localStorage first
+  const saved = localStorage.getItem(LS_LEAVES);
+  if (saved) { try { demoLeavesCache = JSON.parse(saved); return demoLeavesCache; } catch (e) {} }
+  // 2. Fall back to static JSON
+  try {
+    const res = await fetch("/data/leaves.json");
+    if (res.ok) {
+      demoLeavesCache = await res.json();
+      saveDemoLeaves();
+      return demoLeavesCache;
+    }
+  } catch (e) {}
+  return null;
+};
+
 export const getMyLeaves = async (): Promise<Leave[]> => {
+  const demo = await fetchDemoLeaves();
+  if (demo) return demo.map(mapLeave);
+
   const response = await fetchWithAuth("/leaves/my");
   const leaves = await response.json();
-
-  return leaves.map((leave: any) => ({
-    id: leave.id,
-    userId: leave.userId,
-    userName: leave.userName,
-    type: leave.type as LeaveType,
-    status: leave.status as LeaveStatus,
-    startDate: new Date(leave.startDate),
-    endDate: new Date(leave.endDate),
-    reason: leave.reason,
-    approvedBy: leave.approvedBy,
-    approvedByName: leave.approvedByName,
-    approvedAt: leave.approvedAt ? new Date(leave.approvedAt) : undefined,
-    createdAt: new Date(leave.createdAt),
-  }));
+  return leaves.map(mapLeave);
 };
 
 export const getLeavesByUser = async (userId: number): Promise<Leave[]> => {
+  const demo = await fetchDemoLeaves();
+  if (demo) return demo.filter((l: any) => l.userId === userId).map(mapLeave);
+
   const response = await fetchWithAuth("/leaves");
   const leaves = await response.json();
-
-  return leaves.filter((leave: any) => leave.userId === userId).map((leave: any) => ({
-    id: leave.id,
-    userId: leave.userId,
-    userName: leave.userName,
-    type: leave.type as LeaveType,
-    status: leave.status as LeaveStatus,
-    startDate: new Date(leave.startDate),
-    endDate: new Date(leave.endDate),
-    reason: leave.reason,
-    approvedBy: leave.approvedBy,
-    approvedByName: leave.approvedByName,
-    approvedAt: leave.approvedAt ? new Date(leave.approvedAt) : undefined,
-    createdAt: new Date(leave.createdAt),
-  }));
+  return leaves.filter((leave: any) => leave.userId === userId).map(mapLeave);
 };
 
 export const getPendingLeaves = async (): Promise<Leave[]> => {
+  const demo = await fetchDemoLeaves();
+  if (demo) return demo.filter((l: any) => l.status === "PENDING").map(mapLeave);
+
   const response = await fetchWithAuth("/leaves/pending");
   const leaves = await response.json();
-
-  return leaves.map((leave: any) => ({
-    id: leave.id,
-    userId: leave.userId,
-    userName: leave.userName,
-    type: leave.type as LeaveType,
-    status: leave.status as LeaveStatus,
-    startDate: new Date(leave.startDate),
-    endDate: new Date(leave.endDate),
-    reason: leave.reason,
-    approvedBy: leave.approvedBy,
-    approvedByName: leave.approvedByName,
-    approvedAt: leave.approvedAt ? new Date(leave.approvedAt) : undefined,
-    createdAt: new Date(leave.createdAt),
-  }));
+  return leaves.map(mapLeave);
 };
 
 export const getAllLeaves = async (): Promise<Leave[]> => {
+  const demo = await fetchDemoLeaves();
+  if (demo) return demo.map(mapLeave);
+
   const response = await fetchWithAuth("/leaves");
   const leaves = await response.json();
-
-  return leaves.map((leave: any) => ({
-    id: leave.id,
-    userId: leave.userId,
-    userName: leave.userName,
-    type: leave.type as LeaveType,
-    status: leave.status as LeaveStatus,
-    startDate: new Date(leave.startDate),
-    endDate: new Date(leave.endDate),
-    reason: leave.reason,
-    approvedBy: leave.approvedBy,
-    approvedByName: leave.approvedByName,
-    approvedAt: leave.approvedAt ? new Date(leave.approvedAt) : undefined,
-    createdAt: new Date(leave.createdAt),
-  }));
+  return leaves.map(mapLeave);
 };
 
 export const createLeave = async (
@@ -430,47 +440,47 @@ export const createLeave = async (
 };
 
 export const approveLeave = async (leaveId: number): Promise<Leave> => {
+  // Demo fallback: mutate in-memory cache
+  const demo = await fetchDemoLeaves();
+  if (demo) {
+    const leaf = demo.find((l: any) => l.id === leaveId);
+    if (leaf) {
+      leaf.status = "APPROVED";
+      leaf.approvedBy = 1;
+      leaf.approvedByName = "admin";
+      leaf.approvedAt = new Date().toISOString();
+      saveDemoLeaves();
+      return mapLeave(leaf);
+    }
+  }
+
   const response = await fetchWithAuth(`/leaves/${leaveId}/approve`, {
     method: "POST",
   });
-
   const leave = await response.json();
-  return {
-    id: leave.id,
-    userId: leave.userId,
-    userName: leave.userName,
-    type: leave.type as LeaveType,
-    status: leave.status as LeaveStatus,
-    startDate: new Date(leave.startDate),
-    endDate: new Date(leave.endDate),
-    reason: leave.reason,
-    approvedBy: leave.approvedBy,
-    approvedByName: leave.approvedByName,
-    approvedAt: leave.approvedAt ? new Date(leave.approvedAt) : undefined,
-    createdAt: new Date(leave.createdAt),
-  };
+  return mapLeave(leave);
 };
 
 export const rejectLeave = async (leaveId: number): Promise<Leave> => {
+  // Demo fallback: mutate in-memory cache
+  const demo = await fetchDemoLeaves();
+  if (demo) {
+    const leaf = demo.find((l: any) => l.id === leaveId);
+    if (leaf) {
+      leaf.status = "REJECTED";
+      leaf.approvedBy = 1;
+      leaf.approvedByName = "admin";
+      leaf.approvedAt = new Date().toISOString();
+      saveDemoLeaves();
+      return mapLeave(leaf);
+    }
+  }
+
   const response = await fetchWithAuth(`/leaves/${leaveId}/reject`, {
     method: "POST",
   });
-
   const leave = await response.json();
-  return {
-    id: leave.id,
-    userId: leave.userId,
-    userName: leave.userName,
-    type: leave.type as LeaveType,
-    status: leave.status as LeaveStatus,
-    startDate: new Date(leave.startDate),
-    endDate: new Date(leave.endDate),
-    reason: leave.reason,
-    approvedBy: leave.approvedBy,
-    approvedByName: leave.approvedByName,
-    approvedAt: leave.approvedAt ? new Date(leave.approvedAt) : undefined,
-    createdAt: new Date(leave.createdAt),
-  };
+  return mapLeave(leave);
 };
 
 // ==================== Monthly Attendance Summary ====================
@@ -495,6 +505,34 @@ export const getUserMonthlySummary = async (
   year: number,
   month: number
 ): Promise<MonthlyAttendanceSummary> => {
+  // Demo fallback: compute summary from local attendance.json
+  try {
+    const res = await fetch("/data/attendance.json");
+    if (res.ok) {
+      const records = await res.json();
+      const userRecords = records.filter((r: any) => {
+        const d = new Date(r.checkInTime);
+        return r.userId === userId && d.getFullYear() === year && d.getMonth() === month;
+      });
+      const checkInDays: string[] = [];
+      let totalWorkingMinutes = 0;
+      userRecords.forEach((r: any) => {
+        const dateKey = new Date(r.checkInTime).toISOString().split('T')[0];
+        if (!checkInDays.includes(dateKey)) checkInDays.push(dateKey);
+        if (r.checkOutTime) {
+          totalWorkingMinutes += (new Date(r.checkOutTime).getTime() - new Date(r.checkInTime).getTime()) / 60000;
+        }
+      });
+      return {
+        year,
+        month,
+        checkInDays,
+        totalWorkingMinutes: Math.round(totalWorkingMinutes),
+        totalDaysPresent: checkInDays.length,
+      };
+    }
+  } catch (e) {}
+
   const response = await fetchWithAuth(`/attendance/summary/${userId}/${year}/${month}`);
   const summary = await response.json();
 
