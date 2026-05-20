@@ -11,7 +11,7 @@ const getApiBaseUrl = (): string => {
   // For development with separate ports, use the current hostname
   const { protocol, hostname } = window.location;
   // For WSL accessing from Windows browser, use current host
-  return `${protocol}//${hostname}:8080/api`;
+  return `${protocol}//${hostname}:${window.location.port}/api`;
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -46,6 +46,18 @@ const fetchWithAuth = async (
 
 // Auth API
 export const login = async (name: string, password: string): Promise<{ token: string; user: User }> => {
+  // DEMO LOGIC
+  try {
+    const res = await fetch("/data/users.json");
+    const users = await res.json();
+    const user = users.find((u: any) => u.name.toLowerCase() === name.toLowerCase() && u.password === password);
+    if (user) {
+      const token = "demo-token";
+      localStorage.setItem("geotracker_token", token);
+      return { token, user: { ...user, role: user.role as Role } };
+    }
+  } catch (e) { console.error("Demo auth failed", e); }
+
   const response = await fetch(`${API_BASE_URL}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -67,6 +79,21 @@ export const logout = (): void => {
 
 // Users API
 export const getAllUsers = async (): Promise<User[]> => {
+  try {
+    const res = await fetch("/data/users.json");
+    if (res.ok) {
+        const users = await res.json();
+        return users.map((user: any) => ({
+            id: user.id,
+            name: user.name,
+            role: user.role as Role,
+            geofence: user.geofence ? {
+                center: user.geofence.center,
+                radius: user.geofence.radius
+            } : undefined
+        }));
+    }
+  } catch (e) {}
   const response = await fetchWithAuth("/users");
   const users = await response.json();
 
@@ -166,6 +193,22 @@ export const changePassword = async (
 
 // Attendance API
 export const getAllAttendanceRecords = async (): Promise<AttendanceRecord[]> => {
+  try {
+    const res = await fetch("/data/attendance.json");
+    if (res.ok) {
+        const records = await res.json();
+        return records.map((record: any) => ({
+            id: record.id,
+            userId: record.userId,
+            checkInTime: new Date(record.checkInTime),
+            checkOutTime: record.checkOutTime ? new Date(record.checkOutTime) : undefined,
+            checkInLocation: {
+                latitude: record.checkInLatitude || 21.0125,
+                longitude: record.checkInLongitude || 75.5025,
+            },
+        }));
+    }
+  } catch (e) {}
   const response = await fetchWithAuth("/attendance");
   const records = await response.json();
 
