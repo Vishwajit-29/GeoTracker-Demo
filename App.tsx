@@ -66,6 +66,21 @@ const App: React.FC = () => {
     localStorage.removeItem('geotracker_user');
   };
 
+  // Haversine formula: returns distance in meters between two lat/lng points
+  const getDistanceMeters = (loc1: Location, loc2: Location): number => {
+    const R = 6371000; // Earth radius in meters
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
+    const dLat = toRad(loc2.latitude - loc1.latitude);
+    const dLon = toRad(loc2.longitude - loc1.longitude);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(loc1.latitude)) *
+        Math.cos(toRad(loc2.latitude)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
   const handleMarkAttendance = async (userId: number, location: Location) => {
     setAttendanceError(null);
     const user = users.find(u => u.id === userId);
@@ -77,13 +92,32 @@ const App: React.FC = () => {
       );
 
       if (existingRecord) {
-        // Check out
+        // Check out — no geofence check needed
         const updatedRecord = await api.checkOut();
         setAttendanceRecords(records =>
           records.map(r => r.id === updatedRecord.id ? updatedRecord : r)
         );
       } else {
-        // Check in (geofence validation done on backend)
+        // Check in — validate geofence before calling API
+        const geofence = user.geofence?.center ? user.geofence : DEFAULT_GEOFENCE;
+        const distance = getDistanceMeters(location, geofence.center);
+
+        if (distance > geofence.radius) {
+          const distanceStr =
+            distance >= 1000
+              ? `${(distance / 1000).toFixed(2)} km`
+              : `${Math.round(distance)} m`;
+          const radiusStr =
+            geofence.radius >= 1000
+              ? `${(geofence.radius / 1000).toFixed(2)} km`
+              : `${geofence.radius} m`;
+          setAttendanceError(
+            `You are outside the allowed geofence area. ` +
+            `Distance from office: ${distanceStr}, Allowed radius: ${radiusStr}.`
+          );
+          return;
+        }
+
         const newRecord = await api.checkIn(location);
         setAttendanceRecords([...attendanceRecords, newRecord]);
       }
