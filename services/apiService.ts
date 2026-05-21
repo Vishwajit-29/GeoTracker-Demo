@@ -46,17 +46,23 @@ const fetchWithAuth = async (
 
 // Auth API
 export const login = async (name: string, password: string): Promise<{ token: string; user: User }> => {
-  // DEMO LOGIC
+  // DEMO LOGIC - use fetchDemoUsers() so localStorage-stored users (newly added) are included
   try {
-    const res = await fetch("/data/users.json");
-    const users = await res.json();
-    const user = users.find((u: any) => u.name.toLowerCase() === name.toLowerCase() && u.password === password);
-    if (user) {
-      const token = "demo-token";
-      localStorage.setItem("geotracker_token", token);
-      return { token, user: { ...user, role: user.role as Role } };
+    const users = await fetchDemoUsers();
+    if (users) {
+      const user = users.find((u: any) => u.name.toLowerCase() === name.toLowerCase() && u.password === password);
+      if (user) {
+        const token = "demo-token";
+        localStorage.setItem("geotracker_token", token);
+        return { token, user: { ...user, role: user.role as Role } };
+      }
+      // Found demo users but credentials didn't match — throw immediately (no real backend)
+      throw new Error("Invalid username or password");
     }
-  } catch (e) { console.error("Demo auth failed", e); }
+  } catch (e) {
+    if ((e as Error).message === "Invalid username or password") throw e;
+    console.error("Demo auth failed", e);
+  }
 
   const response = await fetch(`${API_BASE_URL}/auth/login`, {
     method: "POST",
@@ -173,6 +179,28 @@ export const changePassword = async (
   newPassword: string,
   confirmPassword: string
 ): Promise<void> => {
+  // Demo fallback: validate and update password in localStorage-backed user cache
+  const demo = await fetchDemoUsers();
+  if (demo) {
+    if (newPassword !== confirmPassword) {
+      throw new Error("New passwords do not match");
+    }
+    // Get current logged-in user
+    let userId: number | null = null;
+    try {
+      const saved = localStorage.getItem("geotracker_user");
+      if (saved) userId = JSON.parse(saved).id;
+    } catch (e) {}
+
+    const user = demo.find((u: any) => u.id === userId);
+    if (!user) throw new Error("User not found");
+    if (user.password !== currentPassword) throw new Error("Current password is incorrect");
+
+    user.password = newPassword;
+    saveDemoUsers();
+    return;
+  }
+
   await fetchWithAuth("/users/change-password", {
     method: "POST",
     body: JSON.stringify({
@@ -412,6 +440,36 @@ export const createLeave = async (
   endDate: string,
   reason: string
 ): Promise<Leave> => {
+  // Demo fallback: persist new leave into localStorage-backed cache
+  const demo = await fetchDemoLeaves();
+  if (demo) {
+    // Get current user from localStorage
+    let userId = 2;
+    let userName = "Employee";
+    try {
+      const saved = localStorage.getItem("geotracker_user");
+      if (saved) { const u = JSON.parse(saved); userId = u.id; userName = u.name; }
+    } catch (e) {}
+    const newId = demo.length > 0 ? Math.max(...demo.map((l: any) => l.id)) + 1 : 1;
+    const newLeave = {
+      id: newId,
+      userId,
+      userName,
+      type,
+      status: "PENDING",
+      startDate: new Date(startDate).toISOString(),
+      endDate: new Date(endDate).toISOString(),
+      reason,
+      approvedBy: null,
+      approvedByName: null,
+      approvedAt: null,
+      createdAt: new Date().toISOString(),
+    };
+    demo.push(newLeave);
+    saveDemoLeaves();
+    return mapLeave(newLeave);
+  }
+
   const response = await fetchWithAuth("/leaves", {
     method: "POST",
     body: JSON.stringify({
@@ -488,6 +546,41 @@ export const getMonthlyAttendanceSummary = async (
   year: number,
   month: number
 ): Promise<MonthlyAttendanceSummary> => {
+  // Demo fallback: compute from localStorage-backed attendance cache
+  const demoAtt = await fetchDemoAttendance();
+  if (demoAtt) {
+    // Get current user id from localStorage
+    let userId: number | null = null;
+    try {
+      const saved = localStorage.getItem("geotracker_user");
+      if (saved) userId = JSON.parse(saved).id;
+    } catch (e) {}
+
+    const userRecords = demoAtt.filter((r: any) => {
+      const d = new Date(r.checkInTime);
+      return (userId === null || r.userId === userId) &&
+        d.getFullYear() === year && d.getMonth() === month;
+    });
+
+    const checkInDays: string[] = [];
+    let totalWorkingMinutes = 0;
+    userRecords.forEach((r: any) => {
+      const dateKey = new Date(r.checkInTime).toISOString().split('T')[0];
+      if (!checkInDays.includes(dateKey)) checkInDays.push(dateKey);
+      if (r.checkOutTime) {
+        totalWorkingMinutes += (new Date(r.checkOutTime).getTime() - new Date(r.checkInTime).getTime()) / 60000;
+      }
+    });
+
+    return {
+      year,
+      month,
+      checkInDays,
+      totalWorkingMinutes: Math.round(totalWorkingMinutes),
+      totalDaysPresent: checkInDays.length,
+    };
+  }
+
   const response = await fetchWithAuth(`/attendance/summary/${year}/${month}`);
   const summary = await response.json();
 
